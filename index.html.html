@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Las Sagradas Escrituras</title>
+   
+    <link rel="stylesheet" href="styles.css">
+
+    <style>
+    </style>
+</head>
+<body>
+
+    <h1>Las Sagradas Escrituras</h1>
+
+    <!-- Controles de texto -->
+    <div id="controls">
+        <button class="control-button" id="increase-font">+</button>
+        <button class="control-button" id="decrease-font">-</button>
+        <button class="control-button" id="toggle-dark-mode">🌓</button>
+    </div>
+
+    <div id="loading">Bienvenido</div>
+    <div id="content"></div>
+    
+    <!-- Sección de detalles -->
+    <div id="details">
+        <span class="close">&times;</span>
+        <div id="details-content"></div>
+    </div>
+
+    <script>
+        // Variables para controlar el modo nocturno y el tamaño de letra
+        let isDarkMode = false;
+        let currentFontSize = 16; // Tamaño inicial de la letra en píxeles
+
+        // Función para ajustar el tamaño de fuente de todos los textos
+        function adjustFontSize(sizeChange) {
+            currentFontSize += sizeChange;
+            currentFontSize = Math.max(12, currentFontSize); // No permitir que baje de 12px
+            document.body.style.fontSize = currentFontSize + 'px'; // Ajustar tamaño de fuente del cuerpo
+        }
+
+        // Función para aumentar el tamaño del texto
+        document.getElementById('increase-font').addEventListener('click', () => {
+            adjustFontSize(2);
+        });
+
+        // Función para disminuir el tamaño del texto
+        document.getElementById('decrease-font').addEventListener('click', () => {
+            adjustFontSize(-2);
+        });
+
+        // Función para alternar entre modo nocturno y modo diurno
+        document.getElementById('toggle-dark-mode').addEventListener('click', () => {
+            isDarkMode = !isDarkMode;
+            if (isDarkMode) {
+                document.body.classList.add('dark-mode');
+            } else {
+                document.body.classList.remove('dark-mode');
+            }
+        });
+
+        // Datos de la API
+        const apiUrl = 'https://api.scripture.api.bible/v1/bibles/48acedcf8595c754-01/books';
+        const apiKey = '7c3beddffc297075b0a64d2a94b2f602';
+
+        // Listas de libros por testamento
+        const oldTestamentBooks = [
+            'GEN', 'EXO', 'LEV', 'NUM', 'DEU', 'JOS', 'JDG', 'RUT', '1SA', '2SA',
+            '1KI', '2KI', '1CH', '2CH', 'EZR', 'NEH', 'EST', 'JOB', 'PSA', 'PRO',
+            'ECC', 'SNG', 'ISA', 'JER', 'LAM', 'EZE', 'DAN', 'HOS', 'JOE', 'AMO',
+            'OBA', 'JON', 'MIC', 'NAM', 'HAB', 'ZEP', 'HAG', 'ZEC', 'MAL'
+        ];
+
+        const newTestamentBooks = [
+            'MAT', 'MAR', 'LUK', 'JHN', 'ACT', 'ROM', '1CO', '2CO', 'GAL', 'EPH',
+            'PHP', 'COL', '1TH', '2TH', '1TI', '2TI', 'TIT', 'PHM', 'HEB', 'JAS',
+            '1PE', '2PE', '1JN', '2JN', '3JN', 'JUD', 'REV'
+        ];
+
+        // Función para obtener todos los libros de la Biblia
+        async function fetchBooks() {
+            try {
+                const response = await fetch(apiUrl, {
+                    method: 'GET',
+                    headers: {
+                        'api-key': apiKey
+                    }
+                });
+
+                if (!response.ok) {
+                    throw new Error('Error al obtener los libros de la Biblia');
+                }
+
+                const data = await response.json();
+                const books = data.data;
+
+                // Divide los libros en Antiguo y Nuevo Testamento
+                const oldTestament = books.filter(book => oldTestamentBooks.includes(book.id));
+                const newTestament = books.filter(book => newTestamentBooks.includes(book.id));
+
+                displayBooks('Antiguo Testamento', oldTestament);
+                displayBooks('Nuevo Testamento', newTestament);
+            } catch (error) {
+                document.getElementById('loading').innerHTML = `<p>Error: ${error.message}</p>`;
+            }
+        }
+
+        // Función para mostrar los libros en la página
+        function displayBooks(testamentName, books) {
+            const contentDiv = document.getElementById('content');
+
+            // Crear la sección para el testamento
+            const testamentDiv = document.createElement('div');
+            testamentDiv.classList.add('testament');
+            testamentDiv.innerHTML = `<h2>${testamentName}</h2>`;
+            contentDiv.appendChild(testamentDiv);
+
+            books.forEach(book => {
+                const bookDiv = document.createElement('div');
+                bookDiv.classList.add('book');
+                bookDiv.innerHTML = `<h3>${book.name}</h3><div class="chapters"></div>`;
+                testamentDiv.appendChild(bookDiv);
+
+                // Agregar evento para mostrar u ocultar los capítulos
+                bookDiv.querySelector('h3').addEventListener('click', () => {
+                    const chaptersDiv = bookDiv.querySelector('.chapters');
+                    chaptersDiv.classList.toggle('show');
+                    if (chaptersDiv.classList.contains('show')) {
+                        fetchChapters(book.id, chaptersDiv);
+                    }
+                });
+            });
+        }
+
+        // Función para obtener los capítulos de un libro
+        async function fetchChapters(bookId, chaptersDiv) {
+            const chaptersUrl = `https://api.scripture.api.bible/v1/bibles/48acedcf8595c754-01/books/${bookId}/chapters`;
+            try {
+                const response = await fetch(chaptersUrl, {
+                    method: 'GET',
+                    headers: {
+                        'api-key': apiKey
+                    }
+                });
+
+                if (!response.ok) {
+                    throw new Error('Error al obtener los capítulos');
+                }
+
+                const data = await response.json();
+                displayChapters(data.data, chaptersDiv);
+            } catch (error) {
+                console.error(error.message);
+            }
+        }
+
+        // Función para mostrar los capítulos
+        function displayChapters(chapters, chaptersDiv) {
+            chapters.forEach(chapter => {
+                const chapterDiv = document.createElement('div');
+                chapterDiv.classList.add('chapter');
+                chapterDiv.innerHTML = `<span class="chapter-title">${chapter.reference}</span><div class="chapter-content"></div>`;
+                chaptersDiv.appendChild(chapterDiv);
+
+                // Obtener los versículos al hacer clic en el capítulo
+                chapterDiv.querySelector('.chapter-title').addEventListener('click', () => {
+                    const contentDiv = chapterDiv.querySelector('.chapter-content');
+                    contentDiv.classList.toggle('show');
+                    if (contentDiv.classList.contains('show')) {
+                        fetchVerses(chapter.id, contentDiv);
+                    }
+                });
+            });
+        }
+
+        // Función para obtener los versículos de un capítulo con los textos
+        async function fetchVerses(chapterId, contentDiv) {
+            const versesUrl = `https://api.scripture.api.bible/v1/bibles/48acedcf8595c754-01/chapters/${chapterId}/verses`;
+            try {
+                const response = await fetch(versesUrl, {
+                    method: 'GET',
+                    headers: {
+                        'api-key': apiKey
+                    }
+                });
+
+                if (!response.ok) {
+                    throw new Error('Error al obtener los versículos');
+                }
+
+                const data = await response.json();
+                displayVersesWithText(data.data, contentDiv);
+            } catch (error) {
+                console.error(error.message);
+            }
+        }
+
+        // Función para mostrar los versículos con el texto completo
+        async function displayVersesWithText(verses, contentDiv) {
+            contentDiv.innerHTML = ''; // Limpiar contenido para evitar duplicados
+            
+            for (const verse of verses) {
+                const verseText = await fetchVerseText(verse.id);
+                const verseDiv = document.createElement('div');
+                verseDiv.classList.add('verse');
+                verseDiv.innerHTML = `<p class="verse-text">${verse.reference}: ${verseText}</p>`;
+                contentDiv.appendChild(verseDiv);
+            }
+        }
+
+        // Función para obtener el texto completo de un versículo
+        async function fetchVerseText(verseId) {
+            const verseUrl = `https://api.scripture.api.bible/v1/bibles/48acedcf8595c754-01/verses/${verseId}`;
+            try {
+                const response = await fetch(verseUrl, {
+                    method: 'GET',
+                    headers: {
+                        'api-key': apiKey
+                    }
+                });
+
+                if (!response.ok) {
+                    throw new Error('Error al obtener el texto del versículo');
+                }
+
+                const data = await response.json();
+                return data.data.content; // Devuelve el contenido del versículo
+            } catch (error) {
+                console.error(error.message);
+                return 'Error al cargar el versículo.';
+            }
+        }
+
+        // Llamada a la función para obtener los libros
+        fetchBooks();
+    </script>
+      <link rel="scriptheet" href="script.css">
+
+</body>
+</html>
